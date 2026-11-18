@@ -23,14 +23,15 @@ const UPGRADES := {
 	"deli": {"name": "Deli Counter",
 		"base_cost": 300.0, "cost_growth": 1.17, "per_tap": 0.0, "per_second": 8.0},
 	# FOR TESTING, deliberately unbalanced: Stronger Fingers' cost curve with absurd income, to
-	# push numbers through every suffix into scientific notation (1e36) in ~2.5 minutes of
+	# push numbers through every suffix into scientific notation (1e15) in ~2 minutes of
 	# hold-to-buy. Remove before a real release.
 	"singularity": {"name": "Pepperoni Singularity",
-		"base_cost": 10.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 1e32},
+		"base_cost": 10.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 3e11},
 }
 
-## Number suffixes for format_number(), one per factor of 1000.
-const SUFFIXES := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+## Number suffixes for format_number(), one per factor of 1000. Only the familiar ones: past T,
+## scientific notation, where a bigger exponent is plainly a bigger number.
+const SUFFIXES := ["", "K", "M", "B", "T"]
 
 var pepperoni := 0.0
 var total_earned := 0.0
@@ -189,7 +190,7 @@ func load_game() -> void:
 
 # ---- formatting ------------------------------------------------------------------------------
 
-## 1234 -> "1,234", 1234567 -> "1.23M"; beyond the suffixes, scientific ("1.00e36").
+## 1234 -> "1,234", 1234567 -> "1.23M"; from 1e15, past T, scientific ("4.56e15").
 ## Rounds first, then picks the suffix or exponent, so 999,999,999 is "1.00B", not "1000.00M".
 ## Plain floats are fine up to ~1e308 (past ~1e16 they drop digits nobody sees); beyond that
 ## they're INF, shown as "Infinity" rather than failing.

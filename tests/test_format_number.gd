@@ -24,7 +24,7 @@ func test_rounding_up_moves_to_the_next_suffix() -> void:
 	for tier: int in range(3, GameScript.SUFFIXES.size()):   # from B: 999,999 stays 999,999
 		var n := 0.999999 * pow(1000.0, tier)
 		expect_eq(GameScript.format_number(n), "1.00" + GameScript.SUFFIXES[tier], "0.999999e%d" % (tier * 3))
-	expect_eq(GameScript.format_number(0.999999e36), "1.00e36", "past the last suffix")
+	expect_eq(GameScript.format_number(0.999999e15), "1.00e15", "past the last suffix (T)")
 
 
 ## Every power of ten from 1e6 up, at the exact value and just below it.
@@ -38,6 +38,9 @@ func test_powers_of_ten() -> void:
 
 
 func test_scientific() -> void:
+	expect_eq(GameScript.format_number(999.99e12), "999.99T", "last suffixed value")
+	expect_eq(GameScript.format_number(1e15), "1.00e15", "first scientific value")
+	expect_eq(GameScript.format_number(4.56e21), "4.56e21")
 	expect_eq(GameScript.format_number(1.5e40), "1.50e40")
 	expect_eq(GameScript.format_number(1.79e308), "1.79e308")
 

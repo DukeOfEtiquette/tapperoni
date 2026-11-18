@@ -52,20 +52,7 @@ To start over, hold *Reset progress* (top-left) for 2 seconds.
 The *Singularity* upgrade is deliberately unbalanced, to test winning: holding its button wins in
 about 45 seconds. Remove it before a real release.
 
-## Next ideas
+## Plans
 
-Planned, not started:
-
-- **"While you were away" message stays up until you act.** The green message about earnings
-  while gone should stay on screen until either (a) a tap in the TAP! area or (b) an upgrade is
-  bought. Right now it hides itself after 5 s (`AWAY_MESSAGE_DURATION` in `scripts/main.gd`).
-- **Upgrades in a slide-in menu.** Move the upgrade list into a menu that slides in from the left
-  edge. It opens either (a) with a hamburger menu button or (b) with a left-to-right swipe that
-  starts at the left edge of the screen, where the menu comes in from.
-
-Other ideas:
-
-- A big-number type (mantissa + exponent), only if the economy is meant to pass ~1e308 (plain
-  floats handle everything below that; they show `Infinity` beyond it).
-- Prestige / reset loop, more upgrades, sound, a proper launcher icon.
-- Release signing (a release keystore, kept out of git) when it's time for Google Play.
+The repo is https://github.com/DukeOfEtiquette/tapperoni, and planned work is tracked in its
+GitHub issues.

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tapperoni: an incremental tap game for Android, written in Godot 4.7 / GDScript. It's an exploration project. Nothing is installed system-wide: the Godot editor is a single binary at `~/Applications/godot/Godot_v4.7.2-stable_linux.x86_64`, and the whole Android toolchain (headless Godot, export templates, JDK 17, Android SDK, adb) runs in a Docker image driven by `bin/phone`.
 
+Planned features are GitHub issues (`gh issue list -R DukeOfEtiquette/tapperoni`; in this environment `gh` needs `-R` because it can't read the git config). What's left before a Play Store release is in `RELEASE-PLAN.md`; keep it current when a release item is done or found.
+
 ## Commands
 
 There's no linter. `bin/phone check` is the full check: a headless import, the tests, then about 30 frames of the game, reporting any script errors and warnings. Run it after every change.

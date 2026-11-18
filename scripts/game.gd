@@ -99,21 +99,26 @@ func can_buy(id: String) -> bool:
 	return pepperoni >= cost(id)
 
 
-## Seconds until buying `id` has paid for itself: the wait to afford it at the current income,
-## plus the time its extra income takes to earn its cost back. Taps are valued at
-## `taps_per_second`. INF if it never would (no income to save up with, or nothing gained).
-## The lowest is the best next buy.
+## Seconds until `id` is affordable at the current income: per_second() plus per_tap() at
+## `taps_per_second`. 0 if it already is; INF if it isn't and there's no income.
+func time_to_afford(id: String, taps_per_second: float) -> float:
+	var shortfall := cost(id) - pepperoni
+	if shortfall <= 0.0:
+		return 0.0
+	var income := per_second() + per_tap() * taps_per_second
+	return shortfall / income if income > 0.0 else INF
+
+
+## Seconds until buying `id` has paid for itself: the wait to afford it (time_to_afford), plus
+## the time its extra income takes to earn its cost back. Taps are valued at `taps_per_second`.
+## INF if it never would (no income to save up with, or nothing gained). The lowest is the best
+## next buy.
 func payback_time(id: String, taps_per_second: float) -> float:
 	var u: Dictionary = UPGRADES[id]
 	var gain: float = u.per_second + u.per_tap * taps_per_second
 	if gain <= 0.0:
 		return INF
-	var income := per_second() + per_tap() * taps_per_second
-	var shortfall := maxf(0.0, cost(id) - pepperoni)
-	if shortfall > 0.0 and income <= 0.0:
-		return INF
-	var wait := shortfall / income if shortfall > 0.0 else 0.0
-	return wait + cost(id) / gain
+	return time_to_afford(id, taps_per_second) + cost(id) / gain   # INF + anything is INF
 
 
 func tap() -> float:
@@ -189,6 +194,33 @@ func load_game() -> void:
 
 
 # ---- formatting ------------------------------------------------------------------------------
+
+## A countdown: "0.0s" ... "59.9s", "4m 05s", "2h 13m", "3d 04h", then years ("12.5y", "4,500y").
+## Rounds up, so it reads "0.0s" only at zero, never while there's still time left. "—" for
+## INF (never).
+static func format_duration(seconds: float) -> String:
+	if is_nan(seconds) or is_inf(seconds):
+		return "—"
+	seconds = maxf(seconds, 0.0)
+	if seconds < 1e9:   # ~32 years: small enough for whole numbers (beyond, ceili overflows)
+		var tenths := ceili(seconds * 10.0)
+		if tenths < 600:
+			return "%.1fs" % (tenths / 10.0)
+		var total_seconds := ceili(seconds)
+		if total_seconds < 3600:
+			return "%dm %02ds" % [total_seconds / 60, total_seconds % 60]
+		var total_minutes := ceili(seconds / 60.0)
+		if total_minutes < 24 * 60:
+			return "%dh %02dm" % [total_minutes / 60, total_minutes % 60]
+		var total_hours := ceili(seconds / 3600.0)
+		if total_hours < 365 * 24:
+			return "%dd %02dh" % [total_hours / 24, total_hours % 24]
+	var years := seconds / (365.25 * 24 * 3600)
+	if years < 1000.0:
+		return "%.1fy" % years
+	return format_number(years) + "y"
+
+
 
 ## 1234 -> "1,234", 1234567 -> "1.23M"; from 1e15, past T, scientific ("4.56e15").
 ## Rounds first, then picks the suffix or exponent, so 999,999,999 is "1.00B", not "1000.00M".

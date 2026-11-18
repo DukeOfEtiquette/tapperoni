@@ -62,6 +62,7 @@ func _process(delta: float) -> void:
 	_forget_old_taps()
 	_update_rate()
 	_update_recommendation()
+	_update_upgrade_buttons()
 	_update_reset_hold(delta)
 	if _held_id != "":
 		# The button may have been disabled under the finger (can't afford): then button_up
@@ -121,10 +122,18 @@ func _buy(id: String) -> void:
 func _refresh() -> void:
 	_count_label.text = Game.format_number(Game.pepperoni)
 	_update_rate()
+	_update_upgrade_buttons()
+
+
+## "Pizza Oven (3)" over "+1 pts/sec · cost 38 · 12.4s": the effect, the cost, and how long until
+## it's affordable at the current tap rate plus passive income ("0.0s" once it is).
+func _update_upgrade_buttons() -> void:
+	var taps_per_second := _taps_per_second(RATE_TAP_WINDOW)   # the rate shown on screen
 	for id: String in _upgrade_buttons:
 		var u: Dictionary = Game.UPGRADES[id]
 		var b: Button = _upgrade_buttons[id]
-		b.text = "%s (%d)\n%s · cost %s" % [u.name, Game.owned[id], _upgrade_effect_text(u), Game.format_number(Game.cost(id))]
+		b.text = "%s (%d)\n%s · cost %s · %s" % [u.name, Game.owned[id], _upgrade_effect_text(u),
+			Game.format_number(Game.cost(id)), Game.format_duration(Game.time_to_afford(id, taps_per_second))]
 		b.disabled = not Game.can_buy(id)
 
 

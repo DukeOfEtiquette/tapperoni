@@ -19,8 +19,12 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 IMAGE=tapperoni-toolchain:4.7.2
 PACKAGE=io.github.dukeofetiquette.tapperoni
+# Relative to the project, so the same paths work inside the container (mounted at /project)
 APK=build/tapperoni.apk
-DEVICE_FILE=$ROOT/build/.device
+STAMP=build_stamp.txt                         # build number packed into the APK (see main.gd)
+# Host-only state, absolute
+DEVICE_FILE=$ROOT/build/.device               # last phone address that worked
+BUILD_NUMBER_FILE=$ROOT/build/.build_number   # last build number
 
 mkdir -p "$ROOT/build" "$HOME/.android"   # before docker run, or Docker creates them root-owned
 touch "$ROOT/build/.gdignore"   # keep Godot from importing (and packing into the APK) what's in build/
@@ -29,7 +33,7 @@ run() {  # run <script>: bash inside the toolchain container
   local tty=(); [ -t 0 ] && [ -t 1 ] && tty=(-it)
   docker run --rm "${tty[@]}" --network host \
     -v "$ROOT:/project" -v "$HOME/.android:/home/ubuntu/.android" \
-    -e DEVICE="${DEVICE:-}" -e PACKAGE="$PACKAGE" -e APK="$APK" \
+    -e DEVICE="${DEVICE:-}" -e PACKAGE="$PACKAGE" -e APK="$APK" -e STAMP="$STAMP" \
     "$IMAGE" bash -c "set -euo pipefail; $(declare -f connect); $1"
 }
 
@@ -52,9 +56,9 @@ connect() {
 }
 
 export_apk() {
-  # Build number, shown in the game's top-right corner: +1 per export (build/.build_number)
-  local n; n=$(( $(cat "$ROOT/build/.build_number" 2>/dev/null || echo 0) + 1 ))
-  echo "$n" > "$ROOT/build/.build_number"; echo "$n" > "$ROOT/build_stamp.txt"
+  # Build number, shown in the game's top-right corner: +1 per export
+  local n; n=$(( $(cat "$BUILD_NUMBER_FILE" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > "$BUILD_NUMBER_FILE"; echo "$n" > "$ROOT/$STAMP"
   run '
     [ -f ~/.android/debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/debug.keystore \
       -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
@@ -63,8 +67,8 @@ export_apk() {
     # Only problems; the full log is in build/export.log
     godot --headless --path /project --export-debug Android "$APK" > build/export.log 2>&1 || true
     grep -E "ERROR|WARNING" build/export.log | grep -v "Could not find version of build tools" || true
-    [ -s "$APK" ] && echo "exported $APK ($(du -h "$APK" | cut -f1), build $(cat build_stamp.txt))"'
-  rm -f "$ROOT/build_stamp.txt"   # so desktop runs show "(dev)"
+    [ -s "$APK" ] && echo "exported $APK ($(du -h "$APK" | cut -f1), build $(cat "$STAMP"))"'
+  rm -f "$ROOT/$STAMP"   # so desktop runs show "(dev)"
   [ -s "$ROOT/$APK" ] || { echo "export failed" >&2; exit 1; }
 }
 
@@ -103,5 +107,5 @@ case "${1:-}" in
   adb)
     shift; device_arg ""
     run "addr=\$(connect) && adb -s \"\$addr\" $(printf '%q ' "$@")" ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  *) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 1 ;;   # the header comment
 esac

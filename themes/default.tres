@@ -1,0 +1,101 @@
+[gd_resource type="Theme" load_steps=7 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
+bg_color = Color(0.16, 0.07, 0.05, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_upgrade_normal"]
+content_margin_left = 12.0
+content_margin_top = 16.0
+content_margin_right = 12.0
+content_margin_bottom = 16.0
+bg_color = Color(0.42, 0.2, 0.08, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.7, 0.35, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_upgrade_hover"]
+content_margin_left = 12.0
+content_margin_top = 16.0
+content_margin_right = 12.0
+content_margin_bottom = 16.0
+bg_color = Color(0.5, 0.25, 0.1, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.8, 0.45, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_upgrade_pressed"]
+content_margin_left = 12.0
+content_margin_top = 16.0
+content_margin_right = 12.0
+content_margin_bottom = 16.0
+bg_color = Color(0.6, 0.32, 0.12, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.9, 0.6, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_upgrade_disabled"]
+content_margin_left = 12.0
+content_margin_top = 16.0
+content_margin_right = 12.0
+content_margin_bottom = 16.0
+bg_color = Color(0.2, 0.12, 0.09, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.35, 0.25, 0.2, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
+
+[resource]
+BackgroundPanel/base_type = &"Panel"
+BackgroundPanel/styles/panel = SubResource("StyleBoxFlat_background")
+BigButton/base_type = &"Button"
+BigButton/font_sizes/font_size = 64
+BigNumberLabel/base_type = &"Label"
+BigNumberLabel/font_sizes/font_size = 84
+FinePrintLabel/base_type = &"Label"
+FinePrintLabel/colors/font_color = Color(0.6, 0.6, 0.6, 0.55)
+FinePrintLabel/font_sizes/font_size = 20
+HeadingLabel/base_type = &"Label"
+HeadingLabel/colors/font_color = Color(1, 0.8, 0.55, 1)
+HeadingLabel/font_sizes/font_size = 36
+NoticeLabel/base_type = &"Label"
+NoticeLabel/colors/font_color = Color(0.6, 0.9, 0.6, 1)
+NoticeLabel/font_sizes/font_size = 26
+StatLabel/base_type = &"Label"
+StatLabel/colors/font_color = Color(0.85, 0.75, 0.7, 1)
+StatLabel/font_sizes/font_size = 26
+UpgradeButton/base_type = &"Button"
+UpgradeButton/colors/font_color = Color(1, 0.95, 0.85, 1)
+UpgradeButton/colors/font_disabled_color = Color(0.6, 0.5, 0.45, 1)
+UpgradeButton/colors/font_hover_color = Color(1, 1, 1, 1)
+UpgradeButton/colors/font_pressed_color = Color(1, 1, 1, 1)
+UpgradeButton/font_sizes/font_size = 26
+UpgradeButton/styles/disabled = SubResource("StyleBoxFlat_upgrade_disabled")
+UpgradeButton/styles/focus = SubResource("StyleBoxEmpty_focus")
+UpgradeButton/styles/hover = SubResource("StyleBoxFlat_upgrade_hover")
+UpgradeButton/styles/normal = SubResource("StyleBoxFlat_upgrade_normal")
+UpgradeButton/styles/pressed = SubResource("StyleBoxFlat_upgrade_pressed")

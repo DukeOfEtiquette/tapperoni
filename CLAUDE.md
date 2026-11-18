@@ -8,12 +8,18 @@ Tapperoni: an incremental tap game for Android, written in Godot 4.7 / GDScript.
 
 ## Commands
 
-There are no unit tests and no linter. The way to check the code is to load the project headless and look for script errors:
+There's no linter. `bin/phone check` is the full check: a headless import, the tests, then about 30 frames of the game, reporting any script errors and warnings. Run it after every change.
 
 ```sh
-bin/phone check                     # headless import + ~30 frames of the game in Docker; prints errors/warnings
-~/Applications/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --quit-after 30   # same check, without Docker
+bin/phone check                     # import + tests + ~30 frames, in Docker
+bin/phone test [filter]             # only the tests; a filter runs those whose "file.method" contains it
+# Without Docker (XDG_DATA_HOME keeps a desktop run from touching the real save):
+GODOT=~/Applications/godot/Godot_v4.7.2-stable_linux.x86_64
+$GODOT --headless --path . -s res://tests/run_tests.gd [-- <filter>]
+XDG_DATA_HOME=$(mktemp -d) $GODOT --headless --path . --quit-after 30
 ```
+
+**Tests:** each `tests/test_*.gd` extends `res://tests/test_case.gd`, and its `test_*()` methods check results with `expect_eq(actual, expected, what)`. `tests/run_tests.gd` finds and runs them. It exits non-zero if any test fails, if a file doesn't load, or if nothing matched. Tests run inside `_initialize`, before autoloads process a frame, so they never load or write the save. That means they test pure or static logic: preload a script under another name (`const GameScript := preload("res://scripts/game.gd")`) rather than using the `Game` autoload. `tests/` is excluded from the APK by `exclude_filter` in `export_presets.cfg`.
 
 Android (needs the image built once with `bin/phone build-image`, again after a Godot version bump):
 
@@ -37,7 +43,8 @@ On the desktop the game runs from the Godot editor (F5) or VS Code's `godot-tool
 - **Saving:** the save is `user://save.json` (on desktop that's `~/.local/share/godot/app_userdata/Tapperoni/`). It's written atomically (to `.tmp`, then renamed) every 5 s and on pause/focus-out/close, because Android can kill a backgrounded app without warning. It carries `"save_format": SAVE_FORMAT` (currently 1). The earliest saves wrote `"version": 1` instead, which is the same format, so a missing `save_format` means 1. Bump `SAVE_FORMAT` and add a migration in `load_game` whenever the save's shape changes. `load_game` reads fields with `.get()` defaults and walks `UPGRADES`, which means new upgrades load fine from old saves. Any change to the save's shape needs the same backward compatibility.
 - **Passive income follows the wall clock**, not the frame `delta`. `Game._process` credits `per_second() * (now - _last_tick)`, with the gap clamped to [0, 8 h]. This matters because Android stops calling `_process` while the app is in the background or the screen is locked. The first frame back then covers the whole gap and emits `returned_from_away(earned)` if the gap was ≥ `AWAY_MIN_GAP`. A cold start does the same from the save's `saved_at` and leaves the amount in `Game.offline_earned`. `main.gd` shows either case as the "While you were away" message.
 - **Recommended upgrade:** `Game.payback_time(id, taps_per_second)` is the seconds to save up for an upgrade plus the seconds its extra income takes to repay its cost. Taps are valued at the given tap rate, and the result is `INF` if it never pays back. `main.gd` stars the lowest, valuing taps at the player's taps/sec over the last 10 s. The star only moves when another upgrade beats the current one by `RECOMMEND_SWITCH_MARGIN`, so it doesn't flicker.
-- **Numbers are plain `float`s.** `Game.format_number` formats them (commas below 1e6, then K/M/B/… suffixes, then scientific). Precision is lost past ~1e15; the README's plan is a mantissa/exponent type before the economy gets that big.
+- **Numbers are plain `float`s.** That's fine up to about 1.8e308. Past about 1e16 they drop low digits, but the display only shows three significant figures, and income is only lost when one frame's earnings are tiny next to the balance. Beyond 1.8e308 a value becomes `INF`. A mantissa/exponent type is only needed if the economy is meant to go past that. `Game.format_number` formats numbers as commas below 1e6, then K/M/B/…/Dc suffixes, then scientific notation from 1e36. It rounds before choosing the suffix or exponent, so 999,999,999 shows as `1.00B`, not `1000.00M`. `INF` shows as `Infinity`. `tests/test_format_number.gd` covers the edges, so run the tests after touching it.
+- **`singularity` ("Pepperoni Singularity") is a deliberately unbalanced test upgrade:** Stronger Fingers' cost curve with +1e32 pts/sec each, so holding its button pushes numbers into scientific notation in about 2.5 minutes. It isn't game design; remove it before a real release.
 - **Build number:** `bin/phone export` increments `build/.build_number`, writes it to `build_stamp.txt` at the project root (the export preset's `include_filter` packs it into the APK), and deletes it after the export. `main.gd` shows "(build N)" when the file exists and "(dev)" when it doesn't. Don't commit `build_stamp.txt`.
 
 ## Toolchain details worth knowing

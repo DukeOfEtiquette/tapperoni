@@ -8,7 +8,8 @@
 #   bin/phone deploy [ip:port]     export a debug APK, install it and launch it
 #   bin/phone export               only export build/tapperoni.apk
 #   bin/phone logs [ip:port]       follow the game's log (print(), errors) from the phone
-#   bin/phone check                load the project headless and report script errors
+#   bin/phone check                load the project headless, report script errors, run the tests
+#   bin/phone test [filter]        only run the tests (tests/test_*.gd), or those matching filter
 #   bin/phone adb <args>           any adb command
 #
 # The phone's address: [ip:port] if given, else the last one that worked (build/.device), else
@@ -34,7 +35,14 @@ run() {  # run <script>: bash inside the toolchain container
   docker run --rm "${tty[@]}" --network host \
     -v "$ROOT:/project" -v "$HOME/.android:/home/ubuntu/.android" \
     -e DEVICE="${DEVICE:-}" -e PACKAGE="$PACKAGE" -e APK="$APK" -e STAMP="$STAMP" \
-    "$IMAGE" bash -c "set -euo pipefail; $(declare -f connect); $1"
+    "$IMAGE" bash -c "set -euo pipefail; $(declare -f connect run_tests); $1"
+}
+
+# Inside the container: run the tests (run_tests [filter]); fails if any test fails. The timeout
+# is a backstop: a test that never returns would otherwise hang this forever.
+run_tests() {
+  timeout 300 godot --headless --path /project -s res://tests/run_tests.gd -- "${1:-}" 2>&1 \
+    | grep -vE '^(Godot Engine|$)'
 }
 
 # Inside the container: start adb and connect to the phone; prints the address used.
@@ -87,8 +95,10 @@ case "${1:-}" in
   build-image) docker build -t "$IMAGE" "$ROOT/docker" ;;
   export) rm -f "$ROOT/$APK"; export_apk ;;
   check)
-    run 'godot --headless --path /project --import 2>&1 | grep -iE "error|warning" || true
-         godot --headless --path /project --quit-after 30 2>&1 | grep -vE "^(Godot Engine|$)" || true' ;;
+    run "godot --headless --path /project --import 2>&1 | grep -iE 'error|warning' || true
+         run_tests
+         godot --headless --path /project --quit-after 30 2>&1 | grep -vE '^(Godot Engine|$)' || true" ;;
+  test) run "run_tests $(printf '%q' "${2:-}")" ;;
   pair)
     [ $# = 3 ] || { echo "usage: bin/phone pair <ip:port> <code>" >&2; exit 1; }
     addr=$(resolve "$2")

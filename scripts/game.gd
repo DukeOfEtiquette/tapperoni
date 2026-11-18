@@ -22,6 +22,11 @@ const UPGRADES := {
 		"base_cost": 25.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 1.0},
 	"deli": {"name": "Deli Counter",
 		"base_cost": 300.0, "cost_growth": 1.17, "per_tap": 0.0, "per_second": 8.0},
+	# FOR TESTING, deliberately unbalanced: Stronger Fingers' cost curve with absurd income, to
+	# push numbers through every suffix into scientific notation (1e36) in ~2.5 minutes of
+	# hold-to-buy. Remove before a real release.
+	"singularity": {"name": "Pepperoni Singularity",
+		"base_cost": 10.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 1e32},
 }
 
 ## Number suffixes for format_number(), one per factor of 1000.
@@ -184,10 +189,17 @@ func load_game() -> void:
 
 # ---- formatting ------------------------------------------------------------------------------
 
-## 1234 -> "1,234", 1234567 -> "1.23M"; beyond the suffixes, scientific notation.
-## Note: floats lose precision past ~1e15 and overflow at ~1e308. Swap in a mantissa/exponent
-## number type before the economy gets that big.
+## 1234 -> "1,234", 1234567 -> "1.23M"; beyond the suffixes, scientific ("1.00e36").
+## Rounds first, then picks the suffix or exponent, so 999,999,999 is "1.00B", not "1000.00M".
+## Plain floats are fine up to ~1e308 (past ~1e16 they drop digits nobody sees); beyond that
+## they're INF, shown as "Infinity" rather than failing.
 static func format_number(n: float) -> String:
+	if is_nan(n):
+		return "?"
+	if n < 0.0:
+		return "-" + format_number(-n)
+	if is_inf(n):
+		return "Infinity"
 	n = floor(n)
 	if n < 1e6:
 		var s := str(int(n))
@@ -197,7 +209,21 @@ static func format_number(n: float) -> String:
 				out += ","
 			out += s[i]
 		return out
-	var tier := int(floor(log(n) / log(1000.0)))
+	# log() can land a hair either side of a whole number (log10(1e36) -> 35.999...), so check.
+	var exponent := int(floor(log(n) / log(10.0)))
+	if pow(10.0, exponent) > n:
+		exponent -= 1
+	elif pow(10.0, exponent + 1) <= n:
+		exponent += 1
+	var tier := exponent / 3
 	if tier < SUFFIXES.size():
-		return "%.2f%s" % [n / pow(1000.0, tier), SUFFIXES[tier]]
-	return "%.2fe%d" % [n / pow(10.0, floor(log(n) / log(10.0))), int(floor(log(n) / log(10.0)))]
+		var value := n / pow(1000.0, tier)
+		if snappedf(value, 0.01) < 1000.0:
+			return "%.2f%s" % [value, SUFFIXES[tier]]
+		if tier + 1 < SUFFIXES.size():   # rounds up into the next suffix
+			return "%.2f%s" % [value / 1000.0, SUFFIXES[tier + 1]]
+	var mantissa := n / pow(10.0, exponent)
+	if snappedf(mantissa, 0.01) >= 10.0:   # rounds up to the next power of ten
+		mantissa /= 10.0
+		exponent += 1
+	return "%.2fe%d" % [mantissa, exponent]

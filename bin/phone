@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Build Tapperoni for Android and run it on the phone, all inside Docker (nothing installed on
+# the host). The phone is reached over Android's Wireless debugging (Android 11+).
+#
+#   bin/phone build-image          build the toolchain image (once, ~2 GB; again after a Godot bump)
+#   bin/phone pair <ip:port> <code>  pair with the phone (once): Developer options -> Wireless
+#                                  debugging -> "Pair device with pairing code"
+#   bin/phone deploy [ip:port]     export a debug APK, install it and launch it
+#   bin/phone export               only export build/tapperoni.apk
+#   bin/phone logs [ip:port]       follow the game's log (print(), errors) from the phone
+#   bin/phone check                load the project headless and report script errors
+#   bin/phone adb <args>           any adb command
+#
+# The phone's address: [ip:port] if given, else the last one that worked (build/.device), else
+# found over mDNS. It's the "IP address & Port" on the Wireless debugging screen (the port
+# changes each time Wireless debugging is switched on).
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+IMAGE=tapperoni-toolchain:4.7.2
+PACKAGE=io.github.dukeofetiquette.tapperoni
+APK=build/tapperoni.apk
+DEVICE_FILE=$ROOT/build/.device
+
+mkdir -p "$ROOT/build" "$HOME/.android"   # before docker run, or Docker creates them root-owned
+
+run() {  # run <script>: bash inside the toolchain container
+  local tty=(); [ -t 0 ] && [ -t 1 ] && tty=(-it)
+  docker run --rm "${tty[@]}" --network host \
+    -v "$ROOT:/project" -v "$HOME/.android:/home/ubuntu/.android" \
+    -e DEVICE="${DEVICE:-}" -e PACKAGE="$PACKAGE" -e APK="$APK" \
+    "$IMAGE" bash -c "set -euo pipefail; $(declare -f connect); $1"
+}
+
+# Inside the container: start adb and connect to the phone; prints the address used.
+connect() {
+  adb start-server >/dev/null 2>&1
+  local addr=""
+  # The given/remembered address first (its port changes whenever Wireless debugging restarts)
+  if [ -n "$DEVICE" ] && adb connect "$DEVICE" 2>/dev/null | grep -q '^connected'; then addr=$DEVICE; fi
+  if [ -z "$addr" ]; then  # else find the paired phone over mDNS
+    for _ in 1 2 3 4 5 6 7 8; do
+      addr=$(adb mdns services 2>/dev/null | awk '/_adb-tls-connect/ {print $NF; exit}')
+      [ -n "$addr" ] && break; sleep 1
+    done
+    [ -n "$addr" ] || { echo "phone not found: is Wireless debugging on (and the phone awake, on the home Wi-Fi)?" >&2; return 1; }
+    adb connect "$addr" | grep -q '^connected' || { echo "could not connect to $addr" >&2; return 1; }
+  fi
+  adb -s "$addr" wait-for-device
+  echo "$addr"
+}
+
+export_apk() {
+  # Build number, shown in the game's top-right corner: +1 per export (build/.build_number)
+  local n; n=$(( $(cat "$ROOT/build/.build_number" 2>/dev/null || echo 0) + 1 ))
+  echo "$n" > "$ROOT/build/.build_number"; echo "$n" > "$ROOT/build_stamp.txt"
+  run '
+    [ -f ~/.android/debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+      -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+      -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
+    godot --headless --path /project --import >/dev/null 2>&1 || true   # first run: import assets
+    # Only problems; the full log is in build/export.log
+    godot --headless --path /project --export-debug Android "$APK" > build/export.log 2>&1 || true
+    grep -E "ERROR|WARNING" build/export.log | grep -v "Could not find version of build tools" || true
+    [ -s "$APK" ] && echo "exported $APK ($(du -h "$APK" | cut -f1), build $(cat build_stamp.txt))"'
+  rm -f "$ROOT/build_stamp.txt"   # so desktop runs show "(dev)"
+  [ -s "$ROOT/$APK" ] || { echo "export failed" >&2; exit 1; }
+}
+
+# The phone may show a name like Android_XXXX.local:port; only the host resolves .local (mDNS).
+resolve() {
+  local host=${1%:*} port=${1##*:} ip
+  [[ $host == *.local ]] || { echo "$1"; return; }
+  ip=$(getent hosts "$host" | awk '{print $1; exit}')
+  [ -n "$ip" ] || { echo "could not resolve $host" >&2; return 1; }
+  echo "$ip:$port"
+}
+device_arg() { DEVICE=${1:-$(cat "$DEVICE_FILE" 2>/dev/null || true)}; [ -z "$DEVICE" ] || DEVICE=$(resolve "$DEVICE"); }
+remember() { [ -n "$1" ] && echo "$1" > "$DEVICE_FILE"; }
+
+case "${1:-}" in
+  build-image) docker build -t "$IMAGE" "$ROOT/docker" ;;
+  export) rm -f "$ROOT/$APK"; export_apk ;;
+  check)
+    run 'godot --headless --path /project --import 2>&1 | grep -iE "error|warning" || true
+         godot --headless --path /project --quit-after 30 2>&1 | grep -vE "^(Godot Engine|$)" || true' ;;
+  pair)
+    [ $# = 3 ] || { echo "usage: bin/phone pair <ip:port> <code>" >&2; exit 1; }
+    addr=$(resolve "$2")
+    run "adb pair '$addr' '$3'" ;;
+  deploy)
+    device_arg "${2:-}"
+    rm -f "$ROOT/$APK"; export_apk
+    out=$(run 'addr=$(connect)
+      adb -s "$addr" install -r --no-incremental "$APK" >&2
+      adb -s "$addr" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+      echo "$addr"') || exit 1
+    remember "$(echo "$out" | tail -1)"; echo "running on the phone ($(tail -1 <<<"$out"))" ;;
+  logs)
+    device_arg "${2:-}"
+    run 'addr=$(connect); adb -s "$addr" logcat -c; exec adb -s "$addr" logcat -s godot:V' ;;
+  adb)
+    shift; device_arg ""
+    run "addr=\$(connect) && adb -s \"\$addr\" $(printf '%q ' "$@")" ;;
+  *) sed -n '2,17p' "$0"; exit 1 ;;
+esac

@@ -1,0 +1,5 @@
+{
+  "godotTools.editorPath.godot4": "/home/adam/Applications/godot/Godot_v4.7.2-stable_linux.x86_64",
+  "files.exclude": { "**/.godot": true, "**/*.import": true },
+  "[gdscript]": { "editor.insertSpaces": false, "editor.tabSize": 4 }
+}

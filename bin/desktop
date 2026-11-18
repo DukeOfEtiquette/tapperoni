@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run Tapperoni with the local Godot editor binary, without Docker (faster than bin/phone for
+# quick checks). Headless runs use a throwaway save, never the real one.
+#
+#   bin/desktop editor             open the project in the Godot editor
+#   bin/desktop test [filter]      run the tests (tests/test_*.gd), or those whose "file.method"
+#                                  contains filter
+#   bin/desktop run [frames]       run the game headless for some frames (default 30) and print
+#                                  any errors
+set -euo pipefail
+
+GODOT="$HOME/Applications/godot/Godot_v4.7.2-stable_linux.x86_64"   # keep in step with the Godot version
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+[ -x "$GODOT" ] || { echo "Godot not found at $GODOT" >&2; exit 1; }
+
+case "${1:-}" in
+  editor) exec "$GODOT" --editor --path "$ROOT" ;;
+  test)
+    # The timeout is a backstop: a test that never returns would otherwise hang this forever.
+    timeout 300 "$GODOT" --headless --path "$ROOT" -s res://tests/run_tests.gd -- "${2:-}" 2>&1 \
+      | grep -vE '^(Godot Engine|$)' ;;
+  run)
+    save_dir=$(mktemp -d)   # XDG_DATA_HOME points user:// here, so the real save is untouched
+    trap 'rm -rf "$save_dir"' EXIT
+    XDG_DATA_HOME="$save_dir" "$GODOT" --headless --path "$ROOT" --quit-after "${2:-30}" 2>&1 \
+      | grep -vE '^(Godot Engine|$)' || true ;;
+  *) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 1 ;;   # the header comment
+esac

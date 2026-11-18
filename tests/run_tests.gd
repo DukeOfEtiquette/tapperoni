@@ -1,7 +1,6 @@
 extends SceneTree
 ## Runs the test_*() methods of every tests/test_*.gd file, headless, and exits non-zero if any
-## fail. bin/phone check runs it; locally:
-##   godot --headless --path . -s res://tests/run_tests.gd [-- <filter>]
+## fail. bin/phone check and bin/phone test run it (in Docker), and so does bin/desktop test.
 ## With a filter, only tests whose "file.method" name contains it run.
 ## Everything runs in _initialize, before autoloads like Game process a frame or touch the save.
 

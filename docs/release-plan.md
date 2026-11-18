@@ -7,8 +7,7 @@ tracked in GitHub issues instead.
 
 - **Remove the Singularity test upgrade.** It's the `singularity` entry in `Game.UPGRADES`
   (`scripts/game.gd`), built to reach the win in about 45 seconds. Also update
-  `tests/test_win.gd` (`test_time_to_win` uses it), and the mentions in `README.md` and
-  `CLAUDE.md`.
+  `tests/test_win.gd` (`test_time_to_win` uses it), and its mention in `design.md`.
 - **Balance the economy and add more upgrades.** Without Singularity there are three upgrades,
   and a real game needs a path to the win (`Game.MAX_POINTS`, about 1.80e308) that takes the
   intended amount of play. Plain additive upgrades can't get there in any reasonable time, since
@@ -26,7 +25,7 @@ tracked in GitHub issues instead.
   image and a new `bin/phone` command for a release export.
 - **Check the target SDK** in the export preset against Play's current target API level
   requirement.
-- **Bump the version** as described in `CLAUDE.md` ("Bumping the game's version"), then tag it.
+- **Bump the version** as described in `development.md`, then tag it.
 
 ## Maybe, for a first release
 

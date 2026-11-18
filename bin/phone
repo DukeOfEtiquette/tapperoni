@@ -23,6 +23,7 @@ APK=build/tapperoni.apk
 DEVICE_FILE=$ROOT/build/.device
 
 mkdir -p "$ROOT/build" "$HOME/.android"   # before docker run, or Docker creates them root-owned
+touch "$ROOT/build/.gdignore"   # keep Godot from importing (and packing into the APK) what's in build/
 
 run() {  # run <script>: bash inside the toolchain container
   local tty=(); [ -t 0 ] && [ -t 1 ] && tty=(-it)

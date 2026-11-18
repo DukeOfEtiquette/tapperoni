@@ -227,7 +227,7 @@ func _update_recommendation() -> void:
 		_recommended_icons[id].visible = id == _recommended_id
 
 
-## "v0.1.0 (build 7)" for exported builds (bin/phone writes build_stamp.txt), "(dev)" in the editor.
+## "v0.2.0 (build 7)" for exported builds (bin/phone writes build_stamp.txt), "(dev)" in the editor.
 func _version_text() -> String:
 	var v := "v%s" % ProjectSettings.get_setting("application/config/version", "?")
 	if FileAccess.file_exists("res://build_stamp.txt"):

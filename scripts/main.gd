@@ -10,7 +10,6 @@ const HOLD_DELAY := 0.35           ## seconds held before repeat-buying starts
 const HOLD_FIRST_INTERVAL := 0.2   ## seconds between the first repeat buys...
 const HOLD_SPEEDUP := 0.8          ## ...each interval this fraction of the one before...
 const HOLD_MIN_INTERVAL := 0.05    ## ...down to this many seconds
-const AWAY_MESSAGE_DURATION := 5.0 ## seconds the "while you were away" message stays up
 const TAP_SQUASH_SCALE := 0.94     ## the tap button shrinks to this on each tap...
 const TAP_SQUASH_IN := 0.05        ## ...over this many seconds...
 const TAP_SQUASH_OUT := 0.08       ## ...and springs back over this many
@@ -24,7 +23,6 @@ var _tap_times: Array[float] = []  ## when the recent taps happened (seconds), o
 var _held_id := ""                 ## upgrade whose button is held down, "" if none
 var _until_next_buy := 0.0         ## seconds until the next repeat buy
 var _hold_interval := 0.0          ## current seconds between repeat buys
-var _away_tween: Tween             ## hides the away message; replaced if it's shown again
 var _reset_held_for := -1.0        ## seconds the reset button has been held; -1 if not held, or done
 
 @onready var _count_label: Label = %CountLabel
@@ -84,6 +82,7 @@ func _process(delta: float) -> void:
 
 func _on_tap_button_pressed() -> void:
 	Game.tap()
+	_away_label.hide()   # the away message stays up until the player acts
 	_tap_times.append(Time.get_ticks_msec() / 1000.0)
 	# A little squash on each tap.
 	_tap_button.pivot_offset = _tap_button.size / 2
@@ -119,6 +118,8 @@ func _on_game_returned_from_away(earned: float) -> void:
 
 func _buy(id: String) -> void:
 	var ok := Game.buy(id)
+	if ok:
+		_away_label.hide()   # the away message stays up until the player acts
 	print("buy %s: %s (owned %d)" % [id, "ok" if ok else "can't afford", Game.owned[id]])
 
 
@@ -157,16 +158,12 @@ func _upgrade_effect_text(u: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-## "While you were away: +N points", for a few seconds (after a cold start, or a return from
-## the background).
+## "While you were away: +N points" (after a cold start, or a return from the background). It
+## stays up until the player taps or buys an upgrade (or resets); coming back again while it's
+## up replaces the amount.
 func _show_away_message(earned: float) -> void:
 	_away_label.text = "While you were away: +%s points" % Game.format_number(earned)
 	_away_label.show()
-	if _away_tween:
-		_away_tween.kill()
-	_away_tween = create_tween()
-	_away_tween.tween_interval(AWAY_MESSAGE_DURATION)
-	_away_tween.tween_callback(_away_label.hide)
 
 
 ## Hold-to-reset: counts down on the button while it's held, and wipes progress once it has been
@@ -184,6 +181,7 @@ func _update_reset_hold(delta: float) -> void:
 		_reset_held_for = -1.0   # done; the text stays until the button is released
 		Game.reset()
 		_tap_times.clear()
+		_away_label.hide()   # it was about progress that's now gone
 		_reset_button.text = "Progress reset"
 	else:
 		_reset_button.text = "Keep holding… %.1fs" % (RESET_HOLD_DURATION - _reset_held_for)

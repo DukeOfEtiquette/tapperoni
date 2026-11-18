@@ -3,11 +3,15 @@ extends Node
 ## tap() / buy(); the `changed` signal tells them to redraw.
 
 signal changed
+## The app was suspended (in the background, or the screen locked) and has just been credited
+## `earned` for the gap. The UI says so, like it does for offline_earned after a cold start.
+signal returned_from_away(earned: float)
 
 const SAVE_PATH := "user://save.json"
 const SAVE_FORMAT := 1                 ## written as "save_format"; bump it when the save's shape changes
 const SAVE_EVERY := 5.0                ## seconds between autosaves
 const OFFLINE_CAP := 8 * 3600.0        ## seconds; at most 8 hours of offline earnings
+const AWAY_MIN_GAP := 10.0             ## seconds between frames that count as having been away
 
 ## Upgrades: data-driven, so adding one is one entry here (the button text is generated from
 ## per_tap / per_second). cost = base_cost * cost_growth ^ owned
@@ -26,9 +30,10 @@ const SUFFIXES := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "
 var pepperoni := 0.0
 var total_earned := 0.0
 var owned: Dictionary[String, int] = {}   ## upgrade id -> count
-var offline_earned := 0.0              ## set on load; the UI shows it once
+var offline_earned := 0.0              ## earned while closed, set on load; the UI shows it once
 
 var _since_save := 0.0                 ## seconds since the last save
+var _last_tick := 0.0                  ## Unix time (seconds) of the last _process
 
 
 # ---- lifecycle -------------------------------------------------------------------------------
@@ -37,12 +42,21 @@ func _ready() -> void:
 	for id: String in UPGRADES:
 		owned[id] = 0
 	load_game()
+	_last_tick = Time.get_unix_time_from_system()
 
 
+## Passive income follows the wall clock, not the frame delta: Android stops calling _process
+## while the app is in the background or the screen is locked, and the first frame back then
+## covers the whole gap (capped like offline earnings).
 func _process(delta: float) -> void:
-	var rate := per_second()
-	if rate > 0.0:
-		_earn(rate * delta)
+	var now := Time.get_unix_time_from_system()
+	var elapsed := clampf(now - _last_tick, 0.0, OFFLINE_CAP)   # a clock set backwards gives 0
+	_last_tick = now
+	var earned := per_second() * elapsed
+	if earned > 0.0:
+		_earn(earned)
+		if elapsed >= AWAY_MIN_GAP:
+			returned_from_away.emit(earned)
 	_since_save += delta
 	if _since_save >= SAVE_EVERY:
 		save_game()
@@ -77,6 +91,23 @@ func cost(id: String) -> float:
 
 func can_buy(id: String) -> bool:
 	return pepperoni >= cost(id)
+
+
+## Seconds until buying `id` has paid for itself: the wait to afford it at the current income,
+## plus the time its extra income takes to earn its cost back. Taps are valued at
+## `taps_per_second`. INF if it never would (no income to save up with, or nothing gained).
+## The lowest is the best next buy.
+func payback_time(id: String, taps_per_second: float) -> float:
+	var u: Dictionary = UPGRADES[id]
+	var gain: float = u.per_second + u.per_tap * taps_per_second
+	if gain <= 0.0:
+		return INF
+	var income := per_second() + per_tap() * taps_per_second
+	var shortfall := maxf(0.0, cost(id) - pepperoni)
+	if shortfall > 0.0 and income <= 0.0:
+		return INF
+	var wait := shortfall / income if shortfall > 0.0 else 0.0
+	return wait + cost(id) / gain
 
 
 func tap() -> float:

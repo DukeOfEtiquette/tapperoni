@@ -1,5 +1,6 @@
 extends Control
-## Main screen: the counter, the tap button and the upgrade list (built from Game.UPGRADES).
+## Main screen: the counter, the tap button and the upgrade list (built from Game.UPGRADES), plus
+## the reset button, which lives in the slide-in %SideMenu but is driven from here.
 
 const UPGRADE_BUTTON_SCENE := preload("res://scenes/upgrade_button.tscn")
 
@@ -31,15 +32,18 @@ var _reset_held_for := -1.0        ## seconds the reset button has been held; -1
 @onready var _away_label: Label = %AwayLabel
 @onready var _win_label: Label = %WinLabel
 @onready var _tap_button: Button = %TapButton
-@onready var _upgrade_list: VBoxContainer = %UpgradeList
 @onready var _version_label: Label = %VersionLabel
-@onready var _reset_button: Button = %ResetButton
+@onready var _upgrade_list: VBoxContainer = %UpgradeList
+@onready var _open_menu_button: Button = %OpenMenuButton
+@onready var _side_menu: SideMenu = %SideMenu
+@onready var _reset_button: Button = _side_menu.reset_button
 
 
 # ---- lifecycle -------------------------------------------------------------------------------
 
 func _ready() -> void:
 	_tap_button.pressed.connect(_on_tap_button_pressed)
+	_open_menu_button.pressed.connect(_on_open_menu_button_pressed)
 	_reset_button.button_down.connect(_on_reset_button_down)
 	_version_label.text = _version_text()
 	for id: String in Game.UPGRADES:
@@ -78,6 +82,17 @@ func _process(delta: float) -> void:
 			_until_next_buy = _hold_interval
 
 
+## Android's back button (quit_on_go_back is off in project.godot) closes the side menu if it's
+## open, and otherwise quits, saving first since quit() sends no close request.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if _side_menu.is_open:
+			_side_menu.close()
+		else:
+			Game.save_game()
+			get_tree().quit()
+
+
 # ---- signal handlers -------------------------------------------------------------------------
 
 func _on_tap_button_pressed() -> void:
@@ -89,6 +104,10 @@ func _on_tap_button_pressed() -> void:
 	var t := create_tween()
 	t.tween_property(_tap_button, "scale", Vector2.ONE * TAP_SQUASH_SCALE, TAP_SQUASH_IN)
 	t.tween_property(_tap_button, "scale", Vector2.ONE, TAP_SQUASH_OUT)
+
+
+func _on_open_menu_button_pressed() -> void:
+	_side_menu.open()
 
 
 func _on_upgrade_button_down(id: String) -> void:
@@ -204,16 +223,14 @@ func _taps_per_second(window: float) -> float:
 	return count / window
 
 
-## "N per tap · N.N taps/sec · N pts/sec" (pts/sec = per tap × taps/sec), plus the upgrades'
-## passive income once there is any.
+## "N per tap · N.N taps/sec · N pts/sec" (pts/sec = per tap × taps/sec), then the upgrades'
+## passive income on a second line, shown even at 0 so the player sees what there is.
 func _update_rate() -> void:
 	var taps_per_second := _taps_per_second(RATE_TAP_WINDOW)
 	var per_tap := Game.per_tap()
-	var text := "%s per tap · %.1f taps/sec · %s pts/sec" % [
-		Game.format_number(per_tap), taps_per_second, Game.format_number(per_tap * taps_per_second)]
-	if Game.per_second() > 0.0:
-		text += "\n+%s pts/sec from upgrades" % Game.format_number(Game.per_second())
-	_rate_label.text = text
+	_rate_label.text = "%s per tap · %.1f taps/sec · %s pts/sec\n+%s pts/sec from upgrades" % [
+		Game.format_number(per_tap), taps_per_second, Game.format_number(per_tap * taps_per_second),
+		Game.format_number(Game.per_second())]
 
 
 ## "Win in 3.21e290y": how long until MAX_POINTS at passive income plus the on-screen tap rate,

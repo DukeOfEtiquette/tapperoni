@@ -33,8 +33,9 @@ An incremental tap game for Android, made with Godot 4.7 (GDScript). An explorat
 |---|---|
 | `scripts/game.gd` | Autoload `Game`: state, economy, upgrades (data in `UPGRADES`), saving, offline progress, number formatting |
 | `scripts/main.gd`, `scenes/main.tscn` | The main screen; each upgrade button is a `scenes/upgrade_button.tscn` |
+| `scripts/side_menu.gd`, `scenes/side_menu.tscn` | The slide-in menu, which holds the reset button |
 | `themes/default.tres` | The project theme: all colours, font sizes and button styles |
-| `icons/` | SVG icons (the recommended-upgrade star) |
+| `icons/` | SVG icons (the recommended-upgrade star, the menu button) |
 | `tests/` | Headless tests (`test_*.gd`), run by `bin/phone check` |
 | `export_presets.cfg` | Android export preset (package `io.github.dukeofetiquette.tapperoni`, arm64) |
 | `bin/phone` | Export / install / logs, via the Docker toolchain |
@@ -47,7 +48,8 @@ You win by reaching the most points there can be, about 1.80e308 (the largest nu
 can hold). After that, nothing earns or buys anything, and "Congratulations, you won!" stays up
 until you reset.
 
-To start over, hold *Reset progress* (top-left) for 2 seconds.
+To start over, open the menu (tap ☰ in the top-left, or swipe in from the left edge) and hold
+*Reset progress* for 2 seconds.
 
 The *Singularity* upgrade is deliberately unbalanced, to test winning: holding its button wins in
 about 45 seconds. Remove it before a real release.

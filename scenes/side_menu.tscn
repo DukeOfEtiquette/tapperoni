@@ -1,0 +1,79 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/side_menu.gd" id="1_menu"]
+[ext_resource type="Texture2D" path="res://icons/menu.svg" id="2_menu_icon"]
+
+[node name="SideMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_menu")
+
+[node name="ShadePanel" type="Panel" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = &"ShadePanel"
+
+[node name="DrawerPanel" type="Panel" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 9
+anchor_right = 0.85
+anchor_bottom = 1.0
+grow_vertical = 2
+theme_type_variation = &"MenuPanel"
+
+[node name="Margin" type="MarginContainer" parent="DrawerPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 72
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 48
+
+[node name="VBox" type="VBoxContainer" parent="DrawerPanel/Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 20
+
+[node name="ResetButton" type="Button" parent="DrawerPanel/Margin/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_type_variation = &"DangerButton"
+text = "Reset progress"
+
+[node name="CloseButton" type="Button" parent="DrawerPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+offset_left = 8.0
+offset_top = 4.0
+offset_right = 72.0
+offset_bottom = 68.0
+theme_type_variation = &"IconButton"
+icon = ExtResource("2_menu_icon")
+
+[node name="EdgeSwipeArea" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 40.0
+grow_vertical = 2

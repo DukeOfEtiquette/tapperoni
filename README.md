@@ -43,10 +43,14 @@ The save file is `user://save.json` (on desktop: `~/.local/share/godot/app_userd
 It's written every 5 s and whenever the app goes to the background. Time away, whether the app
 was closed or just in the background, earns passive income, capped at 8 hours.
 
+You win by reaching the most points there can be, about 1.80e308 (the largest number a float
+can hold). After that, nothing earns or buys anything, and "Congratulations, you won!" stays up
+until you reset.
+
 To start over, hold *Reset progress* (top-left) for 2 seconds.
 
-The *Pepperoni Singularity* upgrade is deliberately unbalanced, to test big numbers: holding it
-reaches scientific notation in a few minutes. Remove it before a real release.
+The *Singularity* upgrade is deliberately unbalanced, to test winning: holding its button wins in
+about 45 seconds. Remove it before a real release.
 
 ## Next ideas
 

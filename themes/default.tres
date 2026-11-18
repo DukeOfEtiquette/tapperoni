@@ -140,3 +140,6 @@ UpgradeButton/styles/focus = SubResource("StyleBoxEmpty_focus")
 UpgradeButton/styles/hover = SubResource("StyleBoxFlat_upgrade_hover")
 UpgradeButton/styles/normal = SubResource("StyleBoxFlat_upgrade_normal")
 UpgradeButton/styles/pressed = SubResource("StyleBoxFlat_upgrade_pressed")
+WinLabel/base_type = &"Label"
+WinLabel/colors/font_color = Color(1, 0.85, 0.35, 1)
+WinLabel/font_sizes/font_size = 44

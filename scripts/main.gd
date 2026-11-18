@@ -29,7 +29,9 @@ var _reset_held_for := -1.0        ## seconds the reset button has been held; -1
 
 @onready var _count_label: Label = %CountLabel
 @onready var _rate_label: Label = %RateLabel
+@onready var _win_time_label: Label = %WinTimeLabel
 @onready var _away_label: Label = %AwayLabel
+@onready var _win_label: Label = %WinLabel
 @onready var _tap_button: Button = %TapButton
 @onready var _upgrade_list: VBoxContainer = %UpgradeList
 @onready var _version_label: Label = %VersionLabel
@@ -61,6 +63,7 @@ func _process(delta: float) -> void:
 	# Taps/sec decays to 0 when you stop, so these update every frame, not only on changes.
 	_forget_old_taps()
 	_update_rate()
+	_update_win_time()
 	_update_recommendation()
 	_update_upgrade_buttons()
 	_update_reset_hold(delta)
@@ -120,8 +123,14 @@ func _buy(id: String) -> void:
 
 
 func _refresh() -> void:
-	_count_label.text = Game.format_number(Game.pepperoni)
+	_count_label.text = Game.format_number(Game.points)
+	# Winning ends the game until a reset: the message stays up and the TAP! button is off (the
+	# upgrade buttons switch off by themselves, since Game.can_buy is false).
+	_win_label.visible = Game.has_won()
+	_win_time_label.visible = not Game.has_won()
+	_tap_button.disabled = Game.has_won()
 	_update_rate()
+	_update_win_time()
 	_update_upgrade_buttons()
 
 
@@ -148,10 +157,10 @@ func _upgrade_effect_text(u: Dictionary) -> String:
 	return ", ".join(parts)
 
 
-## "While you were away: +N pepperoni", for a few seconds (after a cold start, or a return from
+## "While you were away: +N points", for a few seconds (after a cold start, or a return from
 ## the background).
 func _show_away_message(earned: float) -> void:
-	_away_label.text = "While you were away: +%s pepperoni" % Game.format_number(earned)
+	_away_label.text = "While you were away: +%s points" % Game.format_number(earned)
 	_away_label.show()
 	if _away_tween:
 		_away_tween.kill()
@@ -207,6 +216,12 @@ func _update_rate() -> void:
 	if Game.per_second() > 0.0:
 		text += "\n+%s pts/sec from upgrades" % Game.format_number(Game.per_second())
 	_rate_label.text = text
+
+
+## "Win in 3.21e290y": how long until MAX_POINTS at passive income plus the on-screen tap rate,
+## like the upgrade countdowns ("—" with no income). Hidden once won, when %WinLabel takes over.
+func _update_win_time() -> void:
+	_win_time_label.text = "Win in %s" % Game.format_duration(Game.time_to_win(_taps_per_second(RATE_TAP_WINDOW)))
 
 
 ## Stars the upgrade that pays for itself soonest (Game.payback_time), valuing taps at the recent

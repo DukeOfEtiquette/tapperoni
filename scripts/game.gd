@@ -8,10 +8,13 @@ signal changed
 signal returned_from_away(earned: float)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_FORMAT := 1                 ## written as "save_format"; bump it when the save's shape changes
+const SAVE_FORMAT := 2                 ## written as "save_format"; bump it when the save's shape changes
 const SAVE_EVERY := 5.0                ## seconds between autosaves
 const OFFLINE_CAP := 8 * 3600.0        ## seconds; at most 8 hours of offline earnings
 const AWAY_MIN_GAP := 10.0             ## seconds between frames that count as having been away
+## The most points there can be: the largest finite float. Reaching it wins the game, and nothing
+## earns or spends after that until a reset.
+const MAX_POINTS := 1.7976931348623157e308
 
 ## Upgrades: data-driven, so adding one is one entry here (the button text is generated from
 ## per_tap / per_second). cost = base_cost * cost_growth ^ owned
@@ -22,18 +25,17 @@ const UPGRADES := {
 		"base_cost": 25.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 1.0},
 	"deli": {"name": "Deli Counter",
 		"base_cost": 300.0, "cost_growth": 1.17, "per_tap": 0.0, "per_second": 8.0},
-	# FOR TESTING, deliberately unbalanced: Stronger Fingers' cost curve with absurd income, to
-	# push numbers through every suffix into scientific notation (1e15) in ~2 minutes of
-	# hold-to-buy. Remove before a real release.
-	"singularity": {"name": "Pepperoni Singularity",
-		"base_cost": 10.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 3e11},
+	# FOR TESTING, deliberately unbalanced: Stronger Fingers' cost curve with absurd income, so
+	# ~40 s of hold-to-buy reaches MAX_POINTS and wins. Remove before a real release.
+	"singularity": {"name": "Singularity",
+		"base_cost": 10.0, "cost_growth": 1.15, "per_tap": 0.0, "per_second": 1e304},
 }
 
 ## Number suffixes for format_number(), one per factor of 1000. Only the familiar ones: past T,
 ## scientific notation, where a bigger exponent is plainly a bigger number.
 const SUFFIXES := ["", "K", "M", "B", "T"]
 
-var pepperoni := 0.0
+var points := 0.0
 var total_earned := 0.0
 var owned: Dictionary[String, int] = {}   ## upgrade id -> count
 var offline_earned := 0.0              ## earned while closed, set on load; the UI shows it once
@@ -58,9 +60,8 @@ func _process(delta: float) -> void:
 	var now := Time.get_unix_time_from_system()
 	var elapsed := clampf(now - _last_tick, 0.0, OFFLINE_CAP)   # a clock set backwards gives 0
 	_last_tick = now
-	var earned := per_second() * elapsed
+	var earned := _earn(per_second() * elapsed)
 	if earned > 0.0:
-		_earn(earned)
 		if elapsed >= AWAY_MIN_GAP:
 			returned_from_away.emit(earned)
 	_since_save += delta
@@ -96,17 +97,27 @@ func cost(id: String) -> float:
 
 
 func can_buy(id: String) -> bool:
-	return pepperoni >= cost(id)
+	return not has_won() and points >= cost(id)
+
+
+## True once points have reached MAX_POINTS. It lasts until reset(), since nothing can spend them.
+func has_won() -> bool:
+	return points >= MAX_POINTS
 
 
 ## Seconds until `id` is affordable at the current income: per_second() plus per_tap() at
-## `taps_per_second`. 0 if it already is; INF if it isn't and there's no income.
+## `taps_per_second`. 0 if it already is; INF if it isn't and there's no income, or the game is
+## won (nothing can be bought).
 func time_to_afford(id: String, taps_per_second: float) -> float:
-	var shortfall := cost(id) - pepperoni
-	if shortfall <= 0.0:
-		return 0.0
-	var income := per_second() + per_tap() * taps_per_second
-	return shortfall / income if income > 0.0 else INF
+	if has_won():
+		return INF
+	return _time_to_reach(cost(id), taps_per_second)
+
+
+## Seconds until points reach MAX_POINTS and the game is won, at the same income as
+## time_to_afford. 0 once won; INF if there's no income.
+func time_to_win(taps_per_second: float) -> float:
+	return _time_to_reach(MAX_POINTS, taps_per_second)
 
 
 ## Seconds until buying `id` has paid for itself: the wait to afford it (time_to_afford), plus
@@ -122,15 +133,13 @@ func payback_time(id: String, taps_per_second: float) -> float:
 
 
 func tap() -> float:
-	var gained := per_tap()
-	_earn(gained)
-	return gained
+	return _earn(per_tap())
 
 
 func buy(id: String) -> bool:
 	if not can_buy(id):
 		return false
-	pepperoni -= cost(id)
+	points -= cost(id)
 	owned[id] += 1
 	changed.emit()
 	return true
@@ -138,7 +147,7 @@ func buy(id: String) -> bool:
 
 ## Wipes all progress and saves (the main screen's hold-to-reset button).
 func reset() -> void:
-	pepperoni = 0.0
+	points = 0.0
 	total_earned = 0.0
 	for id: String in UPGRADES:
 		owned[id] = 0
@@ -146,10 +155,27 @@ func reset() -> void:
 	changed.emit()
 
 
-func _earn(amount: float) -> void:
-	pepperoni += amount
-	total_earned += amount
+## Adds `amount`, up to MAX_POINTS, and returns what was actually added: less than `amount` at
+## the cap, 0 once the game is won. `amount` may be INF (per_second() can overflow); never NaN,
+## since only positive amounts get through.
+## Seconds until points reach `target` at per_second() plus per_tap() at `taps_per_second`. 0 if
+## they already have; INF if they haven't and there's no income.
+func _time_to_reach(target: float, taps_per_second: float) -> float:
+	var shortfall := target - points
+	if shortfall <= 0.0:
+		return 0.0
+	var income := per_second() + per_tap() * taps_per_second
+	return shortfall / income if income > 0.0 else INF
+
+
+func _earn(amount: float) -> float:
+	if not amount > 0.0 or has_won():
+		return 0.0
+	var gained := minf(amount, MAX_POINTS - points)
+	points = minf(points + amount, MAX_POINTS)   # not points + gained: that can round short of the cap
+	total_earned = minf(total_earned + gained, MAX_POINTS)
 	changed.emit()
+	return gained
 
 
 # ---- saving ----------------------------------------------------------------------------------
@@ -159,7 +185,7 @@ func save_game() -> void:
 	var data := {
 		"save_format": SAVE_FORMAT,
 		"saved_at": Time.get_unix_time_from_system(),
-		"pepperoni": pepperoni,
+		"points": points,
 		"total_earned": total_earned,
 		"owned": owned,
 	}
@@ -179,18 +205,17 @@ func load_game() -> void:
 	if typeof(data) != TYPE_DICTIONARY:
 		push_error("save file unreadable; starting fresh")
 		return
-	# No migrations yet: every save so far is format 1. (The earliest ones say "version": 1
-	# instead of "save_format"; when format 2 comes, treat a missing "save_format" as 1.)
-	pepperoni = float(data.get("pepperoni", 0.0))
+	# The earliest saves say "version": 1 instead of "save_format", so a missing one means 1.
+	var save_format := int(data.get("save_format", 1))
+	# Format 1 called the points "pepperoni"; otherwise the shape is the same.
+	points = minf(float(data.get("points" if save_format >= 2 else "pepperoni", 0.0)), MAX_POINTS)
 	total_earned = float(data.get("total_earned", 0.0))
 	var saved_owned: Dictionary = data.get("owned", {})
 	for id: String in UPGRADES:
 		owned[id] = int(saved_owned.get(id, 0))
 	# Offline progress, clamped: a clock set backwards gives 0, forwards at most OFFLINE_CAP.
 	var away := clampf(Time.get_unix_time_from_system() - float(data.get("saved_at", 0.0)), 0.0, OFFLINE_CAP)
-	offline_earned = per_second() * away
-	if offline_earned > 0.0:
-		_earn(offline_earned)
+	offline_earned = _earn(per_second() * away)
 
 
 # ---- formatting ------------------------------------------------------------------------------

@@ -131,7 +131,7 @@ func buy(id: String) -> bool:
 	return true
 
 
-## Wipes all progress and saves. Nothing calls it yet (no UI for it).
+## Wipes all progress and saves (the main screen's hold-to-reset button).
 func reset() -> void:
 	pepperoni = 0.0
 	total_earned = 0.0

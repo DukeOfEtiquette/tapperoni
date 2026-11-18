@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=7 format=3]
+[gd_resource type="Theme" load_steps=9 format=3]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
 bg_color = Color(0.16, 0.07, 0.05, 1)
@@ -69,6 +69,38 @@ corner_radius_bottom_left = 18
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_danger_normal"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.6, 0.6, 0.6, 0.35)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_danger_pressed"]
+content_margin_left = 12.0
+content_margin_top = 6.0
+content_margin_right = 12.0
+content_margin_bottom = 6.0
+bg_color = Color(0.45, 0.1, 0.08, 0.6)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.45, 0.35, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
 [resource]
 BackgroundPanel/base_type = &"Panel"
 BackgroundPanel/styles/panel = SubResource("StyleBoxFlat_background")
@@ -76,6 +108,15 @@ BigButton/base_type = &"Button"
 BigButton/font_sizes/font_size = 64
 BigNumberLabel/base_type = &"Label"
 BigNumberLabel/font_sizes/font_size = 84
+DangerButton/base_type = &"Button"
+DangerButton/colors/font_color = Color(0.6, 0.6, 0.6, 0.7)
+DangerButton/colors/font_hover_color = Color(0.6, 0.6, 0.6, 0.7)
+DangerButton/colors/font_pressed_color = Color(1, 0.85, 0.8, 1)
+DangerButton/font_sizes/font_size = 20
+DangerButton/styles/focus = SubResource("StyleBoxEmpty_focus")
+DangerButton/styles/hover = SubResource("StyleBoxFlat_danger_normal")
+DangerButton/styles/normal = SubResource("StyleBoxFlat_danger_normal")
+DangerButton/styles/pressed = SubResource("StyleBoxFlat_danger_pressed")
 FinePrintLabel/base_type = &"Label"
 FinePrintLabel/colors/font_color = Color(0.6, 0.6, 0.6, 0.55)
 FinePrintLabel/font_sizes/font_size = 20

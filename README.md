@@ -43,6 +43,8 @@ The save file is `user://save.json` (on desktop: `~/.local/share/godot/app_userd
 It's written every 5 s and whenever the app goes to the background. Time away, whether the app
 was closed or just in the background, earns passive income, capped at 8 hours.
 
+To start over, hold *Reset progress* (top-left) for 2 seconds.
+
 The *Pepperoni Singularity* upgrade is deliberately unbalanced, to test big numbers: holding it
 reaches scientific notation in a few minutes. Remove it before a real release.
 

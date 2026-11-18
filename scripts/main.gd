@@ -14,6 +14,8 @@ const AWAY_MESSAGE_DURATION := 5.0 ## seconds the "while you were away" message 
 const TAP_SQUASH_SCALE := 0.94     ## the tap button shrinks to this on each tap...
 const TAP_SQUASH_IN := 0.05        ## ...over this many seconds...
 const TAP_SQUASH_OUT := 0.08       ## ...and springs back over this many
+const RESET_HOLD_DURATION := 2.0   ## seconds the reset button must be held to wipe progress
+const RESET_TEXT := "Reset progress"
 
 var _upgrade_buttons: Dictionary[String, Button] = {}   ## upgrade id -> its button
 var _recommended_icons: Dictionary[String, TextureRect] = {}   ## upgrade id -> its star
@@ -23,6 +25,7 @@ var _held_id := ""                 ## upgrade whose button is held down, "" if n
 var _until_next_buy := 0.0         ## seconds until the next repeat buy
 var _hold_interval := 0.0          ## current seconds between repeat buys
 var _away_tween: Tween             ## hides the away message; replaced if it's shown again
+var _reset_held_for := -1.0        ## seconds the reset button has been held; -1 if not held, or done
 
 @onready var _count_label: Label = %CountLabel
 @onready var _rate_label: Label = %RateLabel
@@ -30,12 +33,14 @@ var _away_tween: Tween             ## hides the away message; replaced if it's s
 @onready var _tap_button: Button = %TapButton
 @onready var _upgrade_list: VBoxContainer = %UpgradeList
 @onready var _version_label: Label = %VersionLabel
+@onready var _reset_button: Button = %ResetButton
 
 
 # ---- lifecycle -------------------------------------------------------------------------------
 
 func _ready() -> void:
 	_tap_button.pressed.connect(_on_tap_button_pressed)
+	_reset_button.button_down.connect(_on_reset_button_down)
 	_version_label.text = _version_text()
 	for id: String in Game.UPGRADES:
 		var b: Button = UPGRADE_BUTTON_SCENE.instantiate()
@@ -57,6 +62,7 @@ func _process(delta: float) -> void:
 	_forget_old_taps()
 	_update_rate()
 	_update_recommendation()
+	_update_reset_hold(delta)
 	if _held_id != "":
 		# The button may have been disabled under the finger (can't afford): then button_up
 		# doesn't come, so stop as soon as it's no longer pressed.
@@ -91,6 +97,10 @@ func _on_upgrade_button_down(id: String) -> void:
 
 func _on_upgrade_button_up() -> void:
 	_held_id = ""
+
+
+func _on_reset_button_down() -> void:
+	_reset_held_for = 0.0
 
 
 func _on_game_changed() -> void:
@@ -139,6 +149,26 @@ func _show_away_message(earned: float) -> void:
 	_away_tween = create_tween()
 	_away_tween.tween_interval(AWAY_MESSAGE_DURATION)
 	_away_tween.tween_callback(_away_label.hide)
+
+
+## Hold-to-reset: counts down on the button while it's held, and wipes progress once it has been
+## held for RESET_HOLD_DURATION. Letting go, or sliding off the button, cancels. Driven by the
+## button's pressed state each frame rather than button_up, which doesn't always arrive.
+func _update_reset_hold(delta: float) -> void:
+	if not _reset_button.is_pressed():
+		_reset_held_for = -1.0
+		_reset_button.text = RESET_TEXT
+		return
+	if _reset_held_for < 0.0:   # already reset during this press; keep "Progress reset" up
+		return
+	_reset_held_for += delta
+	if _reset_held_for >= RESET_HOLD_DURATION:
+		_reset_held_for = -1.0   # done; the text stays until the button is released
+		Game.reset()
+		_tap_times.clear()
+		_reset_button.text = "Progress reset"
+	else:
+		_reset_button.text = "Keep holding… %.1fs" % (RESET_HOLD_DURATION - _reset_held_for)
 
 
 ## Drops taps older than the longest window anything averages over.
